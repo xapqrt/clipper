@@ -85,5 +85,12 @@ async function run_clip_flow() {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "BRAINSYNC_CLIP") {
     run_clip_flow().catch((err) => console.error("clip flow failed", err));
+    return;
+  }
+
+  if (msg?.type === "BRAINSYNC_PROGRESS") {
+    const label = msg.label || "Working...";
+    const pct = Number(msg.pct || 0);
+    toast_step(label, pct);
   }
 });

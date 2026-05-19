@@ -1,7 +1,15 @@
 const query_input = document.getElementById("query");
 const search_btn = document.getElementById("search_btn");
 const clip_btn = document.getElementById("clip_btn");
+const clear_btn = document.getElementById("clear_btn");
+const stats_div = document.getElementById("stats");
 const results_div = document.getElementById("results");
+
+async function refresh_stats() {
+  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_STATS" });
+  const stats = res?.stats || { total_chunks: 0, unique_urls: 0 };
+  stats_div.textContent = `chunks: ${stats.total_chunks} | pages: ${stats.unique_urls}`;
+}
 
 async function get_active_tab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -62,6 +70,7 @@ search_btn.addEventListener("click", async () => {
   });
 
   render_hits(res?.hits || []);
+  refresh_stats().catch(() => {});
 });
 
 query_input.addEventListener("keydown", (ev) => {
@@ -72,4 +81,14 @@ clip_btn.addEventListener("click", () => {
   trigger_clip().catch((e) => {
     results_div.textContent = `Clip failed: ${String(e)}`;
   });
+});
+
+clear_btn.addEventListener("click", async () => {
+  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_CLEAR_ALL" });
+  results_div.textContent = res?.ok ? "Local vault cleared." : "Clear failed.";
+  await refresh_stats();
+});
+
+refresh_stats().catch((e) => {
+  results_div.textContent = `Stats failed: ${String(e)}`;
 });
