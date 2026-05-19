@@ -7,6 +7,7 @@ const import_btn = document.getElementById("import_btn");
 const import_file = document.getElementById("import_file");
 const stats_div = document.getElementById("stats");
 const recent_div = document.getElementById("recent");
+const domains_div = document.getElementById("domains");
 const domain_filter_input = document.getElementById("domain_filter");
 const min_score_input = document.getElementById("min_score");
 const results_div = document.getElementById("results");
@@ -35,6 +36,19 @@ async function refresh_recent() {
       const label = x.title || "untitled";
       return `<div style="margin-bottom:5px;"><a href="${x.url}" target="_blank">${label}</a></div>`;
     })
+    .join("");
+}
+
+async function refresh_domains() {
+  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_DOMAIN_COUNTS" });
+  const items = res?.items || [];
+  if (!items.length) {
+    domains_div.textContent = "top domains will show here...";
+    return;
+  }
+
+  domains_div.innerHTML = items
+    .map((x) => `<div style="margin-bottom:4px;">${x.domain} <span style="opacity:.7">(${x.chunks})</span></div>`)
     .join("");
 }
 
@@ -105,6 +119,7 @@ search_btn.addEventListener("click", async () => {
     render_hits(res?.hits || []);
     refresh_stats().catch(() => {});
     refresh_recent().catch(() => {});
+    refresh_domains().catch(() => {});
   } finally {
     search_btn.disabled = false;
   }
@@ -130,6 +145,7 @@ clear_btn.addEventListener("click", async () => {
   results_div.textContent = res?.ok ? "Local vault cleared." : "Clear failed.";
   await refresh_stats();
   await refresh_recent();
+  await refresh_domains();
 });
 
 export_btn.addEventListener("click", async () => {
@@ -165,6 +181,7 @@ import_file.addEventListener("change", async () => {
     results_div.textContent = "Import complete.";
     await refresh_stats();
     await refresh_recent();
+    await refresh_domains();
   } catch (e) {
     results_div.textContent = `Import parse failed: ${String(e)}`;
   } finally {
@@ -177,3 +194,4 @@ refresh_stats().catch((e) => {
 });
 
 refresh_recent().catch(() => {});
+refresh_domains().catch(() => {});
