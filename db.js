@@ -57,6 +57,30 @@ export async function put_vector_rows(rows) {
   });
 }
 
+export async function delete_vectors_for_url(url) {
+  if (!url) return;
+
+  const db = await open_vector_db();
+
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const st = tx.objectStore(STORE);
+    const idx = st.index("url");
+    const req = idx.openCursor(IDBKeyRange.only(url));
+
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      st.delete(cursor.primaryKey);
+      cursor.continue();
+    };
+
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 
 
 
@@ -79,6 +103,47 @@ export async function get_all_vectors() {
     const req = st.getAll();
 
     req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+export async function clear_all_vectors() {
+  const db = await open_vector_db();
+
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const st = tx.objectStore(STORE);
+    st.clear();
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function get_vector_stats() {
+  const db = await open_vector_db();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const st = tx.objectStore(STORE);
+    const req = st.getAll();
+
+    req.onsuccess = () => {
+      const rows = req.result || [];
+      const urls = new Set(rows.map((r) => r.url).filter(Boolean));
+      resolve({ total_chunks: rows.length, unique_urls: urls.size });
+    };
+
     req.onerror = () => reject(req.error);
   });
 }
