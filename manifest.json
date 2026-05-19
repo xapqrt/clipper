@@ -3,7 +3,7 @@
   "name": "Brain-Sync",
   "version": "0.0.1",
   "description": "Local-first semantic web clipper",
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",

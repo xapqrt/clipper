@@ -15,6 +15,29 @@ const ext_api = globalThis.chrome;
 let model_thing = null;
 let model_boot_attempted = false;
 
+async function safe_send_progress(tab_id, label, pct) {
+  if (!tab_id) return;
+  try {
+    await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_PROGRESS", label, pct });
+  } catch {
+    // tab may have navigated or disallow messaging; progress is best-effort
+  }
+}
+
+async function trigger_clip_on_tab(tab_id) {
+  if (!tab_id) return;
+
+  try {
+    await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_CLIP" });
+  } catch {
+    await ext_api.scripting.executeScript({
+      target: { tabId: tab_id },
+      files: ["content.js"]
+    });
+    await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_CLIP" });
+  }
+}
+
 async function init_model_thing() {
   if (model_boot_attempted && !model_thing) return null;
   if (model_thing) return model_thing;
@@ -78,12 +101,14 @@ function cosine_similarity(a, b) {
 }
 
 ext_api.runtime.onInstalled.addListener(() => {
-  ext_api.contextMenus.create({ id: "brainsync-clip", title: "Save page to Brain-Sync", contexts: ["page"] });
+  ext_api.contextMenus.removeAll(() => {
+    ext_api.contextMenus.create({ id: "brainsync-clip", title: "Save page to Brain-Sync", contexts: ["page"] });
+  });
 });
 
 ext_api.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "brainsync-clip" || !tab?.id) return;
-  await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
+  await trigger_clip_on_tab(tab.id);
 });
 
 ext_api.commands.onCommand.addListener(async (command) => {
@@ -93,15 +118,7 @@ ext_api.commands.onCommand.addListener(async (command) => {
   const tab = tabs?.[0];
   if (!tab?.id) return;
 
-  try {
-    await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
-  } catch {
-    await ext_api.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["content.js"]
-    });
-    await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
-  }
+  await trigger_clip_on_tab(tab.id);
 });
 
 ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -109,9 +126,11 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const current_tab_data = msg.payload;
     const tab_id = sender?.tab?.id;
     (async () => {
-      if (tab_id) {
-        await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_PROGRESS", label: "Embedding (Local)...", pct: 40 });
+      if (!current_tab_data?.url || !Array.isArray(current_tab_data?.chunks)) {
+        throw new Error("invalid store payload");
       }
+
+      await safe_send_progress(tab_id, "Embedding (Local)...", 40);
 
       await delete_vectors_for_url(current_tab_data.url);
 
@@ -127,18 +146,14 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           embedding: to_storable_embedding(emb)
         });
 
-        if (tab_id) {
-          // MV3 security rules for webassembly make me want to rip my hair out
-          const pct = 40 + Math.round(((i + 1) / current_tab_data.chunks.length) * 55);
-          await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_PROGRESS", label: "Embedding (Local)...", pct });
-        }
+        // MV3 security rules for webassembly make me want to rip my hair out
+        const pct = 40 + Math.round(((i + 1) / current_tab_data.chunks.length) * 55);
+        await safe_send_progress(tab_id, "Embedding (Local)...", pct);
       }
 
       await put_vector_rows(rows);
 
-      if (tab_id) {
-        await ext_api.tabs.sendMessage(tab_id, { type: "BRAINSYNC_PROGRESS", label: "Saved to Brain-Sync", pct: 100 });
-      }
+      await safe_send_progress(tab_id, "Saved to Brain-Sync", 100);
 
       sendResponse({ ok: true, stored: rows.length });
     })().catch((e) => sendResponse({ ok: false, error: String(e) }));
