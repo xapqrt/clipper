@@ -287,4 +287,13 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })().catch((e) => sendResponse({ ok: false, error: String(e), items: [] }));
     return true;
   }
+
+  if (msg?.type === "BRAINSYNC_HEALTH") {
+    (async () => {
+      const stats = await get_vector_stats();
+      const model = Boolean(model_thing);
+      sendResponse({ ok: true, stats, model });
+    })().catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
 });
