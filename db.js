@@ -48,7 +48,9 @@ export async function put_vector_rows(rows) {
         url: row.url,
         title: row.title,
         text_chunk: row.text_chunk,
-        embedding: row.embedding
+        embedding: row.embedding,
+        stored_at: row.stored_at || Date.now(),
+        source: row.source || "page"
       });
     }
 

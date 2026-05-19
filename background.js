@@ -143,7 +143,9 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           url: current_tab_data.url,
           title: current_tab_data.title,
           text_chunk,
-          embedding: to_storable_embedding(emb)
+          embedding: to_storable_embedding(emb),
+          stored_at: Date.now(),
+          source: current_tab_data.source || "page"
         });
 
         // MV3 security rules for webassembly make me want to rip my hair out
