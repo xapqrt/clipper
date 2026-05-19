@@ -163,7 +163,8 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "BRAINSYNC_SEARCH") {
     (async () => {
       const q_emb = await embed_text_local(msg.query || "");
-      const min_score = Number(msg.min_score ?? -1);
+      const raw_min_score = Number(msg.min_score ?? -1);
+      const min_score = Number.isFinite(raw_min_score) ? raw_min_score : -1;
       const domain_filter = String(msg.domain_filter || "").trim().toLowerCase();
       const top_k = Math.max(1, Math.min(20, Number(msg.top_k || 3)));
       const all_rows = await get_all_vectors();
