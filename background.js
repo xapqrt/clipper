@@ -1,9 +1,11 @@
 import {
   clear_all_vectors,
   delete_vectors_for_url,
+  export_all_vectors_payload,
   from_storable_embedding,
   get_all_vectors,
   get_vector_stats,
+  import_vectors_payload,
   put_vector_rows,
   to_storable_embedding
 } from "./db.js";
@@ -145,13 +147,26 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "BRAINSYNC_SEARCH") {
     (async () => {
       const q_emb = await embed_text_local(msg.query || "");
+      const min_score = Number(msg.min_score ?? -1);
+      const domain_filter = String(msg.domain_filter || "").trim().toLowerCase();
+      const top_k = Math.max(1, Math.min(20, Number(msg.top_k || 3)));
       const all_rows = await get_all_vectors();
 
-      const scored = all_rows.map((row) => {
-        const db_emb = from_storable_embedding(row.embedding);
-        const sim_score = cosine_similarity(q_emb, db_emb);
-        return { ...row, sim_score };
-      });
+      const scored = all_rows
+        .map((row) => {
+          const db_emb = from_storable_embedding(row.embedding);
+          const sim_score = cosine_similarity(q_emb, db_emb);
+          return { ...row, sim_score };
+        })
+        .filter((row) => row.sim_score >= min_score)
+        .filter((row) => {
+          if (!domain_filter) return true;
+          try {
+            return new URL(row.url).hostname.toLowerCase().includes(domain_filter);
+          } catch {
+            return false;
+          }
+        });
 
       scored.sort((a, b) => b.sim_score - a.sim_score);
 
@@ -175,7 +190,7 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
 
       const reranked = Array.from(best_by_url.values()).sort((a, b) => b.sim_score - a.sim_score);
-      sendResponse({ ok: true, hits: reranked.slice(0, 3) });
+      sendResponse({ ok: true, hits: reranked.slice(0, top_k) });
     })().catch((e) => sendResponse({ ok: false, error: String(e), hits: [] }));
     return true;
   }
@@ -193,6 +208,50 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await clear_all_vectors();
       sendResponse({ ok: true });
     })().catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg?.type === "BRAINSYNC_EXPORT_ALL") {
+    (async () => {
+      const payload = await export_all_vectors_payload();
+      sendResponse({ ok: true, payload });
+    })().catch((e) => sendResponse({ ok: false, error: String(e), payload: null }));
+    return true;
+  }
+
+  if (msg?.type === "BRAINSYNC_IMPORT_ALL") {
+    (async () => {
+      await import_vectors_payload(msg.payload);
+      const stats = await get_vector_stats();
+      sendResponse({ ok: true, stats });
+    })().catch((e) => sendResponse({ ok: false, error: String(e) }));
+    return true;
+  }
+
+  if (msg?.type === "BRAINSYNC_RECENT") {
+    (async () => {
+      const rows = await get_all_vectors();
+      const by_url = new Map();
+
+      for (const row of rows) {
+        const parts = String(row.id || "").split("::");
+        const ts = Number(parts[parts.length - 2] || 0) || 0;
+        const prev = by_url.get(row.url);
+        if (!prev || ts > prev.ts) {
+          by_url.set(row.url, {
+            url: row.url,
+            title: row.title || "untitled",
+            ts,
+            text_chunk: row.text_chunk || ""
+          });
+        }
+      }
+
+      const recent = Array.from(by_url.values())
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, 8);
+      sendResponse({ ok: true, items: recent });
+    })().catch((e) => sendResponse({ ok: false, error: String(e), items: [] }));
     return true;
   }
 });
