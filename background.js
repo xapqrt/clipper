@@ -168,14 +168,20 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const raw_min_score = Number(msg.min_score ?? -1);
       const min_score = Number.isFinite(raw_min_score) ? raw_min_score : -1;
       const domain_filter = String(msg.domain_filter || "").trim().toLowerCase();
-      const top_k = Math.max(1, Math.min(20, Number(msg.top_k || 3)));
+      const top_k = Math.max(1, Math.min(20, Number.isFinite(Number(msg.top_k)) ? Number(msg.top_k) : 3));
       const all_rows = await get_all_vectors();
 
       const scored = all_rows
         .map((row) => {
           const db_emb = from_storable_embedding(row.embedding);
           const sim_score = cosine_similarity(q_emb, db_emb);
-          return { ...row, sim_score };
+          // lightweight token overlap boost to prefer literal matches
+          const q_tokens = String(msg.query || "").toLowerCase().split(/\s+/).filter(Boolean);
+          const text_lower = String(row.text_chunk || "").toLowerCase();
+          let overlap = 0;
+          for (const t of q_tokens) if (t && text_lower.includes(t)) overlap += 1;
+          const boost = Math.min(0.25, overlap * 0.05);
+          return { ...row, sim_score: sim_score + boost };
         })
         .filter((row) => row.sim_score >= min_score)
         .filter((row) => {
