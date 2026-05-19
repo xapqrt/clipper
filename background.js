@@ -3,6 +3,7 @@ import {
   delete_vectors_for_url,
   export_all_vectors_payload,
   from_storable_embedding,
+  get_domain_counts,
   get_all_vectors,
   get_vector_stats,
   import_vectors_payload,
@@ -251,6 +252,14 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         .sort((a, b) => b.ts - a.ts)
         .slice(0, 8);
       sendResponse({ ok: true, items: recent });
+    })().catch((e) => sendResponse({ ok: false, error: String(e), items: [] }));
+    return true;
+  }
+
+  if (msg?.type === "BRAINSYNC_DOMAIN_COUNTS") {
+    (async () => {
+      const items = await get_domain_counts(8);
+      sendResponse({ ok: true, items });
     })().catch((e) => sendResponse({ ok: false, error: String(e), items: [] }));
     return true;
   }
