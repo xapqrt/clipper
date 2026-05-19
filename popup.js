@@ -21,6 +21,7 @@ async function trigger_clip() {
   if (!tab?.id) return;
 
   results_div.textContent = "Clipping page now...";
+  clip_btn.disabled = true;
 
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
@@ -33,6 +34,8 @@ async function trigger_clip() {
     });
     await chrome.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
     results_div.textContent = "Injected content script, clipping now.";
+  } finally {
+    clip_btn.disabled = false;
   }
 }
 
@@ -64,13 +67,20 @@ search_btn.addEventListener("click", async () => {
   const raw_q = query_input.value.trim();
   if (!raw_q) return;
 
-  const res = await chrome.runtime.sendMessage({
-    type: "BRAINSYNC_SEARCH",
-    query: raw_q
-  });
+  search_btn.disabled = true;
+  results_div.textContent = "Searching local vectors...";
 
-  render_hits(res?.hits || []);
-  refresh_stats().catch(() => {});
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: "BRAINSYNC_SEARCH",
+      query: raw_q
+    });
+
+    render_hits(res?.hits || []);
+    refresh_stats().catch(() => {});
+  } finally {
+    search_btn.disabled = false;
+  }
 });
 
 query_input.addEventListener("keydown", (ev) => {
@@ -79,7 +89,12 @@ query_input.addEventListener("keydown", (ev) => {
 
 clip_btn.addEventListener("click", () => {
   trigger_clip().catch((e) => {
-    results_div.textContent = `Clip failed: ${String(e)}`;
+    const msg = String(e);
+    if (msg.includes("Receiving end does not exist") || msg.includes("Cannot access")) {
+      results_div.textContent = "Clip blocked on this page type (like chrome:// or web store).";
+      return;
+    }
+    results_div.textContent = `Clip failed: ${msg}`;
   });
 });
 
