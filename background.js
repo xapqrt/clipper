@@ -7,9 +7,12 @@ import {
 
 const ext_api = globalThis.chrome;
 let model_thing = null;
+let model_boot_attempted = false;
 
 async function init_model_thing() {
+  if (model_boot_attempted && !model_thing) return null;
   if (model_thing) return model_thing;
+  model_boot_attempted = true;
 
   try {
     const lib = await import("./vendor/transformers.min.js");
