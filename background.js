@@ -83,6 +83,24 @@ ext_api.contextMenus.onClicked.addListener(async (info, tab) => {
   await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
 });
 
+ext_api.commands.onCommand.addListener(async (command) => {
+  if (command !== "brainsync-clip-active") return;
+
+  const tabs = await ext_api.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs?.[0];
+  if (!tab?.id) return;
+
+  try {
+    await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
+  } catch {
+    await ext_api.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"]
+    });
+    await ext_api.tabs.sendMessage(tab.id, { type: "BRAINSYNC_CLIP" });
+  }
+});
+
 ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === "BRAINSYNC_STORE_PAGE") {
     const current_tab_data = msg.payload;
