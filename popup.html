@@ -16,6 +16,7 @@
       #clear_btn { margin-top: 8px; width: 100%; }
       #backup_row { margin-top: 8px; display: flex; gap: 8px; }
       #recent { margin-top: 10px; font-size: 11px; max-height: 100px; overflow: auto; border-top: 1px dashed #bbb; padding-top: 8px; }
+      #domains { margin-top: 8px; font-size: 11px; max-height: 90px; overflow: auto; border-top: 1px dashed #bbb; padding-top: 8px; }
       #results { margin-top: 10px; font-size: 12px; max-height: 300px; overflow: auto; }
     </style>
   </head>
@@ -38,6 +39,7 @@
     </div>
     <input id="import_file" type="file" accept="application/json" style="display:none" />
     <div id="recent">recent clips will show here...</div>
+    <div id="domains">top domains will show here...</div>
     <div id="results">No query yet.</div>
     <script type="module" src="popup.js"></script>
   </body>
