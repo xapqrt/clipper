@@ -131,13 +131,27 @@ function render_hits(hits) {
         <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #999;">
           <div><strong>${safe_title}</strong> <span style="opacity:.7">score ${score}</span></div>
           <div style="margin:4px 0;">${mark(snip)}...</div>
-          <a href="${safe_url}" target="_blank">open source</a>
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center;"><a href="${safe_url}" target="_blank">open source</a><button data-url="${safe_url}" data-text="${escape_html(snip)}" class="copy_btn">copy snippet</button></div>
         </div>
       `;
     })
     .join("");
 
   results_div.innerHTML = html;
+
+  // attach copy handlers
+  const copyBtns = results_div.querySelectorAll(".copy_btn");
+  copyBtns.forEach((b) => {
+    b.addEventListener("click", async (ev) => {
+      try {
+        await navigator.clipboard.writeText(b.getAttribute("data-text") || "");
+        results_div.textContent = "Snippet copied to clipboard.";
+        setTimeout(() => refresh_stats().catch(() => {}), 800);
+      } catch {
+        results_div.textContent = "Copy failed.";
+      }
+    });
+  });
 }
 
 search_btn.addEventListener("click", async () => {
