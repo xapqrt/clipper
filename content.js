@@ -24,15 +24,21 @@ function extract_mainish_text() {
   const temp = document.cloneNode(true);
   temp.querySelectorAll("script,style,noscript,nav,footer,aside,form").forEach((n) => n.remove());
   const raw_text = temp.body?.innerText || "";
-  return raw_text.replace(/\n{3,}/g, "\n\n").trim();
+  let cleaned = raw_text.replace(/\n{3,}/g, "\n\n").trim();
+  // remove giant navigation blocks and repeated separators
+  cleaned = cleaned.replace(/([-]{3,}|\*{3,}|={3,})/g, "\n");
+  // collapse long repeated lines
+  cleaned = cleaned.split('\n').filter((l) => l.trim().length > 0).map((l) => l.trim()).join('\n');
+  return cleaned;
 }
 
 function chunk_by_words(text, words_per_chunk = 500) {
   // TODO: make the chunking smarter, right now it just slices strings blindly
   const all_words = text.split(/\s+/).filter(Boolean);
   const chunks = [];
-  for (let i = 0; i < all_words.length; i += words_per_chunk) {
-    chunks.push(all_words.slice(i, i + words_per_chunk).join(" "));
+  const step = words_per_chunk || 300;
+  for (let i = 0; i < all_words.length; i += step) {
+    chunks.push(all_words.slice(i, i + step).join(" "));
   }
   console.log("CHUNKS:", chunks.length);
   return chunks;
