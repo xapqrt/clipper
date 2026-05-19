@@ -1,9 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Brain-Sync",
-  "version": "0.0.1",
-  "description": "Local-first semantic web clipper",
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs"],
+  "version": "0.2.0",
+  "description": "Clip pages into a local vault and search them without a server",
+  "minimum_chrome_version": "102",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["storage", "scripting", "contextMenus"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",
@@ -11,28 +18,27 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Brain-Sync"
+    "default_title": "Brain-Sync",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
   "commands": {
-    "brainsync-clip-active": {
+    "brainsync-clip": {
       "suggested_key": {
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       },
-      "description": "Clip active tab into Brain-Sync"
+      "description": "Clip the active tab into Brain-Sync"
     }
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["*.wasm", "wasm/*", "models/*", "vendor/*"],
-      "matches": ["<all_urls>"]
+      "run_at": "document_idle",
+      "all_frames": false
     }
   ]
 }
