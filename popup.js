@@ -36,10 +36,12 @@ function render_hits(hits) {
 
   const html = hits
     .map((item) => {
-      const snip = item.text_chunk.slice(0, 140).replace(/\s+/g, " ");
+      const text = String(item.text_chunk || "");
+      const snip = text.slice(0, 140).replace(/\s+/g, " ");
+      const score = Number(item.sim_score || 0).toFixed(3);
       return `
         <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #999;">
-          <div><strong>${item.title || "untitled"}</strong></div>
+          <div><strong>${item.title || "untitled"}</strong> <span style="opacity:.7">score ${score}</span></div>
           <div style="margin:4px 0;">${snip}...</div>
           <a href="${item.url}" target="_blank">open source</a>
         </div>

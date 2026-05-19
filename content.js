@@ -42,14 +42,28 @@ async function run_clip_flow() {
   toast_step("Extracting...", 22);
   const raw_text = extract_mainish_text();
 
+  if (!raw_text) {
+    toast_step("No useful text found", 100);
+    setTimeout(() => {
+      toast_node?.remove();
+      toast_node = null;
+    }, 1400);
+    return;
+  }
+
   toast_step("Embedding (Local)...", 56);
-  const chunks = chunk_by_words(raw_text);
+  const chunks = chunk_by_words(raw_text).filter((x) => x && x.trim());
 
   const payload = {
     url: location.href,
     title: document.title,
     chunks
   };
+
+  if (!payload.chunks.length) {
+    toast_step("No chunks to store", 100);
+    return;
+  }
 
   const res = await chrome.runtime.sendMessage({
     type: "BRAINSYNC_STORE_PAGE",
