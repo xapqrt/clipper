@@ -13,10 +13,23 @@ const min_score_input = document.getElementById("min_score");
 const results_div = document.getElementById("results");
 let last_hits = [];
 
+function escape_html(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 async function refresh_stats() {
-  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_STATS" });
-  const stats = res?.stats || { total_chunks: 0, unique_urls: 0 };
-  stats_div.textContent = `chunks: ${stats.total_chunks} | pages: ${stats.unique_urls}`;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_STATS" });
+    const stats = res?.stats || { total_chunks: 0, unique_urls: 0 };
+    stats_div.textContent = `chunks: ${stats.total_chunks} | pages: ${stats.unique_urls}`;
+  } catch {
+    stats_div.textContent = "chunks: ? | pages: ?";
+  }
 }
 
 async function get_active_tab() {
@@ -25,32 +38,41 @@ async function get_active_tab() {
 }
 
 async function refresh_recent() {
-  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_RECENT" });
-  const items = res?.items || [];
-  if (!items.length) {
-    recent_div.textContent = "recent clips will show here...";
-    return;
-  }
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_RECENT" });
+    const items = res?.items || [];
+    if (!items.length) {
+      recent_div.textContent = "recent clips will show here...";
+      return;
+    }
 
-  recent_div.innerHTML = items
-    .map((x) => {
-      const label = x.title || "untitled";
-      return `<div style="margin-bottom:5px;"><a href="${x.url}" target="_blank">${label}</a></div>`;
-    })
-    .join("");
+    recent_div.innerHTML = items
+      .map((x) => {
+        const label = escape_html(x.title || "untitled");
+        const url = escape_html(x.url || "");
+        return `<div style="margin-bottom:5px;"><a href="${url}" target="_blank">${label}</a></div>`;
+      })
+      .join("");
+  } catch {
+    recent_div.textContent = "failed to load recent clips";
+  }
 }
 
 async function refresh_domains() {
-  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_DOMAIN_COUNTS" });
-  const items = res?.items || [];
-  if (!items.length) {
-    domains_div.textContent = "top domains will show here...";
-    return;
-  }
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_DOMAIN_COUNTS" });
+    const items = res?.items || [];
+    if (!items.length) {
+      domains_div.textContent = "top domains will show here...";
+      return;
+    }
 
-  domains_div.innerHTML = items
-    .map((x) => `<div style="margin-bottom:4px;">${x.domain} <span style="opacity:.7">(${x.chunks})</span></div>`)
-    .join("");
+    domains_div.innerHTML = items
+      .map((x) => `<div style="margin-bottom:4px;">${escape_html(x.domain)} <span style="opacity:.7">(${Number(x.chunks || 0)})</span></div>`)
+      .join("");
+  } catch {
+    domains_div.textContent = "failed to load domain counts";
+  }
 }
 
 async function trigger_clip() {
@@ -90,7 +112,7 @@ function render_hits(hits) {
 
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const mark = (txt) => {
-    let out = txt;
+    let out = escape_html(txt);
     for (const w of q_words) {
       const re = new RegExp(`(${esc(w)})`, "ig");
       out = out.replace(re, "<mark>$1</mark>");
@@ -103,11 +125,13 @@ function render_hits(hits) {
       const text = String(item.text_chunk || "");
       const snip = text.slice(0, 140).replace(/\s+/g, " ");
       const score = Number(item.sim_score || 0).toFixed(3);
+      const safe_title = escape_html(item.title || "untitled");
+      const safe_url = escape_html(item.url || "");
       return `
         <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed #999;">
-          <div><strong>${item.title || "untitled"}</strong> <span style="opacity:.7">score ${score}</span></div>
+          <div><strong>${safe_title}</strong> <span style="opacity:.7">score ${score}</span></div>
           <div style="margin:4px 0;">${mark(snip)}...</div>
-          <a href="${item.url}" target="_blank">open source</a>
+          <a href="${safe_url}" target="_blank">open source</a>
         </div>
       `;
     })
@@ -173,19 +197,24 @@ clear_btn.addEventListener("click", async () => {
 });
 
 export_btn.addEventListener("click", async () => {
-  const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_EXPORT_ALL" });
-  if (!res?.ok || !res.payload) {
-    results_div.textContent = "Export failed.";
-    return;
-  }
+  try {
+    const res = await chrome.runtime.sendMessage({ type: "BRAINSYNC_EXPORT_ALL" });
+    if (!res?.ok || !res.payload) {
+      results_div.textContent = "Export failed.";
+      return;
+    }
 
-  const blob = new Blob([JSON.stringify(res.payload, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `brainsync-backup-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  results_div.textContent = `Exported ${res.payload.count} chunks.`;
+    const blob = new Blob([JSON.stringify(res.payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    const obj_url = URL.createObjectURL(blob);
+    a.href = obj_url;
+    a.download = `brainsync-backup-${Date.now()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(obj_url), 500);
+    results_div.textContent = `Exported ${res.payload.count} chunks.`;
+  } catch {
+    results_div.textContent = "Export failed.";
+  }
 });
 
 import_btn.addEventListener("click", () => import_file.click());
