@@ -136,7 +136,28 @@ ext_api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       });
 
       scored.sort((a, b) => b.sim_score - a.sim_score);
-      sendResponse({ ok: true, hits: scored.slice(0, 3) });
+
+
+
+
+
+
+
+
+
+
+
+
+      const best_by_url = new Map();
+      for (const row of scored) {
+        const prev = best_by_url.get(row.url);
+        if (!prev || row.sim_score > prev.sim_score) {
+          best_by_url.set(row.url, row);
+        }
+      }
+
+      const reranked = Array.from(best_by_url.values()).sort((a, b) => b.sim_score - a.sim_score);
+      sendResponse({ ok: true, hits: reranked.slice(0, 3) });
     })().catch((e) => sendResponse({ ok: false, error: String(e), hits: [] }));
     return true;
   }
