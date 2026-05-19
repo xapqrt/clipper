@@ -148,6 +148,54 @@ export async function get_vector_stats() {
   });
 }
 
+export async function export_all_vectors_payload() {
+  const rows = await get_all_vectors();
+  return {
+    schema: 1,
+    exported_at: new Date().toISOString(),
+    count: rows.length,
+    rows
+  };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+export async function import_vectors_payload(payload) {
+  if (!payload || !Array.isArray(payload.rows)) {
+    throw new Error("invalid import payload");
+  }
+
+  const db = await open_vector_db();
+
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const st = tx.objectStore(STORE);
+
+    for (const row of payload.rows) {
+      if (!row?.id || !row?.url || !Array.isArray(row?.embedding)) continue;
+      st.put({
+        id: row.id,
+        url: row.url,
+        title: row.title || "",
+        text_chunk: row.text_chunk || "",
+        embedding: row.embedding
+      });
+    }
+
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export function to_storable_embedding(float32) {
   return Array.from(float32);
 }
